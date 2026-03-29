@@ -141,12 +141,11 @@ The default value of '--size' will be changed to 'Standard_D2s_v5' from 'Standar
 
 ```
 [amir@bomboclat ~]$ ssh chad_fisc
-The authenticity of host '9.205.154.220 (9.205.154.220)' can't be established.
+The authenticity of host '9.205.X.X (9.205.X.X)' can't be established.
 ED25519 key fingerprint is: SHA256:PKJFuioC7Bx14Y4w+D6IwSrCEHKDeJw2AbkwPSS1VlI
 This key is not known by any other names.
 Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
-Warning: Permanently added '9.205.154.220' (ED25519) to the list of known hosts.
-Warning: Permanently added '9.205.154.220' (ED25519) to the list of known hosts.
+Warning: Permanently added '9.205.X.X' (ED25519) to the list of known hosts.
 [amir@chapeauchimique ~]$ ping 1.1.1.1
 PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
 64 bytes from 1.1.1.1: icmp_seq=1 ttl=52 time=9.95 ms
@@ -173,22 +172,22 @@ The default value of '--size' will be changed to 'Standard_D2s_v5' from 'Standar
 Consider upgrading security for your workloads using Azure Trusted Launch VMs. To know more about Trusted Launch, please visit https://aka.ms/TrustedLaunch.
 {
   "fqdns": "",
-  "id": "/subscriptions/204b03a8-e7ae-466d-ab21-6999000feaba/resourceGroups/cloud_tp/providers/Microsoft.Compute/virtualMachines/chrysacier",
+  "id": "",
   "location": "denmarkeast",
   "macAddress": "7C-ED-8D-6A-87-37",
   "powerState": "VM running",
   "privateIpAddress": "10.0.0.5",
-  "publicIpAddress": "9.205.153.244",
+  "publicIpAddress": "9.205.X.X",
   "resourceGroup": "cloud_tp"
 }
 [amir@bomboclat ~]$ vim .ssh/config 
 [amir@bomboclat ~]$ vim .ssh/config 
 [amir@bomboclat ~]$ ssh single_spe_pokemon
-The authenticity of host '9.205.153.244 (9.205.153.244)' can't be established.
+The authenticity of host '9.205.X.X (9.205.X.X)' can't be established.
 ED25519 key fingerprint is: SHA256:bfQ1O9cazsnmQagUbuu4J5/QIyEbpYD+FveW0wf6KDk
 This key is not known by any other names.
 Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
-Warning: Permanently added '9.205.153.244' (ED25519) to the list of known hosts.
+Warning: Permanently added '9.205.X.X' (ED25519) to the list of known hosts.
 [amir@chrysacier ~]$ 
 ```
 
@@ -233,5 +232,93 @@ public (default, active)
 **🌞 Proposez une conf OpenSSH forte**
 
 ```
+[amir@chrysacier ~]$ sudo cat /etc/ssh/sshd_config
+Port 67
+AuthenticationMethods   publickey
+PubkeyAuthentication    yes
+PasswordAuthentication  no
+AllowGroups     skibidi
+PermitRootLogin no
+[amir@chrysacier ~]$ 
 
 ```
+
+(fail2ban)
+
+**🌞 Installer et configurer fail2ban**
+```
+amir@chrysacier ~]$ sudo systemctl start fail2ban
+[amir@chrysacier ~]$ sudo systemctl enable fail2ban
+Created symlink '/etc/systemd/system/multi-user.target.wants/fail2ban.service' → '/usr/lib/systemd/system/fail2ban.service'.
+[amir@chrysacier ~]$ sudo systemctl status fail2ban
+● fail2ban.service - Fail2Ban Service
+     Loaded: loaded (/usr/lib/systemd/system/fail2ban.service; enabled; preset: disabled)
+     Active: active (running) since Sun 2026-03-29 14:47:24 UTC; 10s ago
+
+
+[amir@chrysacier ~]$ sudo cat /etc/fail2ban/jail.local
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1
+bantime = -1
+maxretry = 2
+findtime = 1h
+
+[sshd]
+enabled = true
+port    = 67
+maxretry =2
+logpath = /var/log/auth.log
+
+
+```
+
+
+(Harden Kernel Parameters)
+
+**🌞 Proposer une conf sysctl**
+
+```
+[amir@chrysacier sysctl.d]$ sudo cat 99-sysctl.conf 
+# sysctl settings are defined through files in
+# /usr/lib/sysctl.d/, /run/sysctl.d/, and /etc/sysctl.d/.
+#
+# Vendors settings live in /usr/lib/sysctl.d/.
+# To override a whole file, create a new file with the same in
+# /etc/sysctl.d/ and put new settings there. To override
+# only specific settings, add a file with a lexically later
+# name in /etc/sysctl.d/ and put new settings there.
+#
+# For more information, see sysctl.conf(5) and sysctl.d(5).
+
+
+# Auto-reboot linux 30 seconds after a kernel panic
+kernel.panic = 30
+kernel.panic_on_oops = 30
+
+
+# Controls the maximum size of a message, in bytes
+kernel.msgmnb = 65536
+
+# Controls the default maxmimum size of a mesage queue
+kernel.msgmax = 65536
+
+```
+
+(IDS)
+
+**🌞 Installer l'IDS AIDE**
+
+```
+[amir@chrysacier ~]$ sudo dnf install aide -y
+Last metadata expiration check: 0:47:26 ago on Sun 29 Mar 2026 02:47:19 PM UTC.
+Dependencies resolved.
+====================================================================================================================================================================
+ Package                           Architecture                        Version                                         Repository                              Size
+====================================================================================================================================================================
+Installing:
+ aide                              x86_64                              0.18.6-8.el10_1.2                               appstream                              145 k
+
+
+```
+
+**🌞 Proposer une conf AIDE**
