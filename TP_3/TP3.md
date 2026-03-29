@@ -322,3 +322,213 @@ Installing:
 ```
 
 **🌞 Proposer une conf AIDE**
+
+```
+[amir@chrysacier ~]$ sudo cat /etc/aide.conf | grep sshd && sudo cat /etc/aide.conf | grep sysctl
+/etc/ssh/sshd_config$ p+i+n+u+g+s+b+m+c+acl+selinux+xattrs
+/etc/sysctl.conf p+i+n+u+g+s+b+m+c+acl+selinux+xattrs
+```
+
+**🌞 Initialiser la base de données AIDE**
+```
+[amir@chrysacier ~]$ sudo aide --init
+WARNING: /var/lib/aide/aide.db.new.gz: gnutls_hash_init (stribog256) failed for '/var/lib/aide/aide.db.new.gz'
+WARNING: /var/lib/aide/aide.db.new.gz: gnutls_hash_init (stribog512) failed for '/var/lib/aide/aide.db.new.gz'
+Start timestamp: 2026-03-29 16:23:23 +0000 (AIDE 0.18.6)
+AIDE successfully initialized database.
+New AIDE database written to /var/lib/aide/aide.db.new.gz
+
+Number of entries:      40980
+
+---------------------------------------------------
+The attributes of the (uncompressed) database(s):
+---------------------------------------------------
+
+/var/lib/aide/aide.db.new.gz
+
+```
+
+**🌞 Jouer avec les tests d'intégrité AIDE**
+
+```
+[amir@chrysacier ~]$ aide --check
+  ERROR: cannot open config file '/etc/aide.conf': Permission denied
+[amir@chrysacier ~]$ sudo aide --check
+Start timestamp: 2026-03-29 16:30:00 +0000 (AIDE 0.18.6)
+AIDE found NO differences between database and filesystem. Looks okay!!
+
+[amir@chrysacier ~]$ sudo aide --check
+WARNING: /var/lib/aide/aide.db.gz: gnutls_hash_init (stribog256) failed for '/var/lib/aide/aide.db.gz'
+WARNING: /var/lib/aide/aide.db.gz: gnutls_hash_init (stribog512) failed for '/var/lib/aide/aide.db.gz'
+Start timestamp: 2026-03-29 16:32:39 +0000 (AIDE 0.18.6)
+AIDE found differences between database and filesystem!!
+
+Summary:
+  Total number of entries:      40980
+  Added entries:                0
+  Removed entries:              0
+  Changed entries:              1
+
+---------------------------------------------------
+Changed entries:
+---------------------------------------------------
+
+f <.... mci. ... : /etc/ssh/sshd_config
+
+```
+
+**🌞 Créer un service systemd pour lancer un test AIDE**
+
+```
+[amir@chrysacier ~]$ sudo vim /etc/systemd/system/aide-test.service
+[amir@chrysacier ~]$ sudo cat /etc/systemd/system/aide-test.service
+[Unit]
+Description=Run an AIDE integrity check
+
+[Service]
+# On met oneshot en type : ça indique que ce sera pas un service qui va run en permanence, mais un truc ponctuel (il se lance puis se termine)
+Type=oneshot
+
+# En ExecStart on met la commande qui sera exécutée quand on fait un `systemctl start`
+# Mettez le chemin absolu vers la commande
+ExecStart=/usr/sbin/aide --check
+
+# Ptit tip pour que le service reste indiqué comme "actif" même après qu'il soit terminé
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+
+```
+
+**🌞 Indiquer à systemd qu'on a modifié les services**
+
+```
+[amir@chrysacier ~]$ sudo systemctl daemon-reload
+[amir@chrysacier ~]$ 
+
+```
+
+**🌞 Tester le service**
+
+```
+[amir@chrysacier ~]$ sudo systemctl start aide-test
+Job for aide-test.service failed because the control process exited with error code.
+See "systemctl status aide-test.service" and "journalctl -xeu aide-test.service" for details.
+[amir@chrysacier ~]$ ournalctl -xeu aide-test.service
+-bash: ournalctl: command not found
+[amir@chrysacier ~]$ journalctl -xeu aide-test.service
+Mar 29 16:48:48 chrysacier aide[36156]: Detailed information about changes:
+Mar 29 16:48:48 chrysacier aide[36156]: ---------------------------------------------------
+Mar 29 16:48:48 chrysacier aide[36156]: File: /etc/ssh/sshd_config
+Mar 29 16:48:48 chrysacier aide[36156]:  Size      : 143                              | 117
+Mar 29 16:48:48 chrysacier aide[36156]:  Mtime     : 2026-03-29 15:21:00 +0000        | 2026-03-29 16:32:37 +0000
+Mar 29 16:48:48 chrysacier aide[36156]:  Ctime     : 2026-03-29 15:21:00 +0000        | 2026-03-29 16:32:37 +0000
+Mar 29 16:48:48 chrysacier aide[36156]:  Inode     : 16944916                         | 16944912
+Mar 29 16:48:48 chrysacier aide[36156]: ---------------------------------------------------
+Mar 29 16:48:48 chrysacier aide[36156]: The attributes of the (uncompressed) database(s):
+Mar 29 16:48:48 chrysacier aide[36156]: ---------------------------------------------------
+Mar 29 16:48:48 chrysacier aide[36156]: /var/lib/aide/aide.db.gz
+
+
+```
+
+**🌞 Créer un timer systemd**
+
+```
+[amir@chrysacier ~]$ sudo cat /etc/systemd/system/aide-test.timer
+[Unit]
+Description=check moi tout ca tte les hesurres
+
+[Timer]
+OnCalendar=hourly
+
+[Install]
+WantedBy=timers.target
+
+```
+
+## V. Deploy!
+
+**🌞 Clean la VM**
+
+```
+[amir@chrysacier ~]$ sudo cloud-init clean --logs
+[amir@chrysacier ~]$ sudo rm -rf /var/lib/cloud/*
+[amir@chrysacier ~]$ sudo systemctl status cloud-init
+● cloud-init.service - Cloud-init: Network Stage
+     Loaded: loaded (/usr/lib/systemd/system/cloud-init.service; enabled; preset: enabled)
+[amir@chrysacier ~]$ cat /dev/null > ~/.bash_history 
+[amir@chrysacier ~]$ cat ~/.bash_history 
+[amir@chrysacier ~]$ 
+```
+
+**🌞 Faire de la VM un template**
+
+
+```
+[amir@bomboclat ~]$ az vm deallocate --resource-group cloud_tp --name chrysacier
+[amir@bomboclat ~]$ az vm generalize --resource-group cloud_tp --name chrysacier
+[amir@bomboclat ~]$ az image create --resource-group cloud_tp --name alma-hardened --source chrysacier --hyper-v-generation V2
+{
+  "hyperVGeneration": "V2",
+  "id": 
+  "location": "denmarkeast",
+  "name": "alma-hardened",
+  "provisioningState": "Succeeded",
+  "resourceGroup": "cloud_tp",
+  "sourceVirtualMachine": {
+    "id": 
+    "resourceGroup": "cloud_tp"
+  },
+  "storageProfile": {
+    "dataDisks": [],
+    "osDisk": {
+      "caching": "ReadWrite",
+      "diskSizeGB": 30,
+      "managedDisk": {
+        "id":
+        "resourceGroup": "cloud_tp"
+      },
+      "osState": "Generalized",
+      "osType": "Linux",
+      "storageAccountType": "Premium_LRS"
+    }
+  },
+  "tags": {},
+  "type": "Microsoft.Compute/images"
+}
+```
+
+
+**🌞 Lancer une VM à partir de cette image**
+
+```
+[amir@bomboclat ~]$ az vm create -g cloud_tp -n chapeau_tiramisu --size Standard_B1s --image alma-hardened --admin-username amir --ssh-key-values ~/.ssh/cloud_tp1.pub
+The default value of '--size' will be changed to 'Standard_D2s_v5' from 'Standard_DS1_v2' in a future release.
+{
+  "fqdns": "",
+  "id": 
+  "location": "denmarkeast",
+  "macAddress": "",
+  "powerState": "VM running",
+  "privateIpAddress": "10.0.0.5",
+  "publicIpAddress": "9.205.X.X",
+  "resourceGroup": "cloud_tp"
+}
+
+```
+
+**🌞 Vérif**
+
+```
+[amir@bomboclat ~]$ ssh -p 6767 amir@9.205.153.134
+The authenticity of host '[9.205.X.X]:6767 ([9.205.X.X]:6767)' can't be established.
+ED25519 key fingerprint is: SHA256:Uf+6wOspyXFURfQ7tE8StyLptsnkNaX058NKi5oJRDI
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '[9.205.X.X]:6767' (ED25519) to the list of known hosts.
+Last login: Sun Mar 29 16:04:34 2026 from 176.166.X.X
+[amir@chapeautiramisu ~]$ 
+
+```
